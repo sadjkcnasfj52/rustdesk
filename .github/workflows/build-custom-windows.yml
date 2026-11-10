@@ -95,18 +95,6 @@ jobs:
           vcpkgGitCommitId: ${{ env.VCPKG_COMMIT_ID }}
           doNotCache: false
 
-      - name: Preload vcpkg mfx-dispatch patch
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          patch=fix-missing-cstdint-import-d6241243f85a0d947bdfe813006686a930edef24.patch
-          curl --fail --location --retry 5 --retry-all-errors --retry-delay 10 \
-            --header "Authorization: Bearer ${GITHUB_TOKEN}" \
-            "https://github.com/lu-zero/mfx_dispatch/commit/d6241243f85a0d947bdfe813006686a930edef24.patch?full_index=1" \
-            --output "$VCPKG_ROOT/downloads/$patch"
-          echo "5d2ffc4ec2ba0e5859d01d2e072f75436ebc3e62e0f6580b5bb8b9f82fe588e7558a46a1fdfa0297a782c0eeb8f50322258d0dd9e41d927cc9be496727b61e44  $VCPKG_ROOT/downloads/$patch" | sha512sum --check
-
       - name: Install vcpkg dependencies
         env:
           VCPKG_DEFAULT_HOST_TRIPLET: x64-windows-static
@@ -210,18 +198,6 @@ jobs:
           vcpkgDirectory: C:\vcpkg
           vcpkgGitCommitId: ${{ env.VCPKG_COMMIT_ID }}
           doNotCache: false
-
-      - name: Preload vcpkg mfx-dispatch patch
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          patch=fix-missing-cstdint-import-d6241243f85a0d947bdfe813006686a930edef24.patch
-          curl --fail --location --retry 5 --retry-all-errors --retry-delay 10 \
-            --header "Authorization: Bearer ${GITHUB_TOKEN}" \
-            "https://github.com/lu-zero/mfx_dispatch/commit/d6241243f85a0d947bdfe813006686a930edef24.patch?full_index=1" \
-            --output "$VCPKG_ROOT/downloads/$patch"
-          echo "5d2ffc4ec2ba0e5859d01d2e072f75436ebc3e62e0f6580b5bb8b9f82fe588e7558a46a1fdfa0297a782c0eeb8f50322258d0dd9e41d927cc9be496727b61e44  $VCPKG_ROOT/downloads/$patch" | sha512sum --check
 
       - name: Install vcpkg dependencies
         env:
