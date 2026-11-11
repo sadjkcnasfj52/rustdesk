@@ -262,6 +262,9 @@ class ChatModel with ChangeNotifier {
   showChatPage(MessageKey key) async {
     if (isDesktop) {
       if (isConnManager) {
+        if (kCustomForceHideConnectionManager) {
+          return;
+        }
         if (!_isShowCMSidePage) {
           await toggleCMChatPage(key);
         }
@@ -292,6 +295,9 @@ class ChatModel with ChangeNotifier {
 
   var _togglingCMSidePage = false; // protect order for await
   toggleCMSidePage() async {
+    if (isConnManager && kCustomForceHideConnectionManager) {
+      return false;
+    }
     if (_togglingCMSidePage) return false;
     _togglingCMSidePage = true;
     if (_isShowCMSidePage) {

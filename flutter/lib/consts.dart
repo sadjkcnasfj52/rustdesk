@@ -11,6 +11,10 @@ const double kDesktopRemoteTabBarHeight = 28.0;
 const int kInvalidWindowId = -1;
 const int kMainWindowId = 0;
 
+// Custom unattended build: the controlled device's connection manager must
+// remain hidden even when a session event asks to bring its window forward.
+const bool kCustomForceHideConnectionManager = true;
+
 const kAllDisplayValue = -1;
 
 const kKeyLegacyMode = 'legacy';

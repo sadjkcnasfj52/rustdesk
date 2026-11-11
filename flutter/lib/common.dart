@@ -734,6 +734,11 @@ Future<void> windowOnTop(int? id) async {
   if (!isDesktop) {
     return;
   }
+  if (id == null &&
+      desktopType == DesktopType.cm &&
+      kCustomForceHideConnectionManager) {
+    return;
+  }
   print("Bring window '$id' on top");
   if (id == null) {
     // main window
