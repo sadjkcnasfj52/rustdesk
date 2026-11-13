@@ -90,7 +90,15 @@ pub fn core_main() -> Option<Vec<String>> {
         #[cfg(target_os = "windows")]
         let should_check_start_tray = crate::platform::is_self_service_running()
             && crate::platform::is_cur_exe_the_installed();
-        if should_check_start_tray && !crate::check_process("--tray", true) {
+        #[cfg(target_os = "windows")]
+        let allow_tray_autostart =
+            !crate::platform::windows::CUSTOM_DISABLE_WINDOWS_TRAY_AUTOSTART;
+        #[cfg(target_os = "linux")]
+        let allow_tray_autostart = true;
+        if should_check_start_tray
+            && allow_tray_autostart
+            && !crate::check_process("--tray", true)
+        {
             #[cfg(target_os = "linux")]
             hbb_common::allow_err!(crate::platform::check_autostart_config());
             hbb_common::allow_err!(crate::run_me(vec!["--tray"]));

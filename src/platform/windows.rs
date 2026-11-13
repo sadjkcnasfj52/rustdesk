@@ -115,6 +115,9 @@ use installer_shell::{
 pub const FLUTTER_RUNNER_WIN32_WINDOW_CLASS: &'static str = "FLUTTER_RUNNER_WIN32_WINDOW"; // main window, install window
 pub const EXPLORER_EXE: &'static str = "explorer.exe";
 pub const SET_FOREGROUND_WINDOW: &'static str = "SET_FOREGROUND_WINDOW";
+// Keep the unattended Windows service available after restart without creating
+// a per-user tray process at sign-in or immediately after installation.
+pub const CUSTOM_DISABLE_WINDOWS_TRAY_AUTOSTART: bool = true;
 
 const REG_NAME_INSTALL_DESKTOPSHORTCUTS: &str = "DESKTOPSHORTCUTS";
 const REG_NAME_INSTALL_STARTMENUSHORTCUTS: &str = "STARTMENUSHORTCUTS";
@@ -1643,8 +1646,6 @@ pub fn install_me(options: &str, path: String, silent: bool, debug: bool) -> Res
         &format!("Uninstall {app_name}.lnk"),
         "uninstall_shortcut",
     );
-    let tray_shortcut_commands =
-        embedded_tray_shortcut_commands(&app_name, &exe, shortcut_icon_location.as_deref())?;
     let mut reg_value_desktop_shortcuts = "0".to_owned();
     let mut reg_value_start_menu_shortcuts = "0".to_owned();
     let mut reg_value_printer = "0".to_owned();
@@ -1699,13 +1700,22 @@ if exist \"{tmp_path}\\{app_name} Tray.lnk\" del /f /q \"{tmp_path}\\{app_name} 
         Config::set_option("api-server".into(), lic.api);
     }
 
-    let tray_shortcuts = if config::is_outgoing_only() {
+    let tray_shortcuts = if config::is_outgoing_only() || CUSTOM_DISABLE_WINDOWS_TRAY_AUTOSTART {
         "".to_owned()
     } else {
+        let tray_shortcut_commands =
+            embedded_tray_shortcut_commands(&app_name, &exe, shortcut_icon_location.as_deref())?;
         format!("
 {tray_shortcut_commands}
 copy /Y \"{tmp_path}\\{app_name} Tray.lnk\" \"%PROGRAMDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\\"
 ")
+    };
+    let remove_tray_autostart = if CUSTOM_DISABLE_WINDOWS_TRAY_AUTOSTART {
+        format!(
+            "if exist \"%PROGRAMDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\{app_name} Tray.lnk\" del /f /q \"%PROGRAMDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\{app_name} Tray.lnk\""
+        )
+    } else {
+        "".to_owned()
     };
 
     let install_remote_printer = if install_printer {
@@ -1744,6 +1754,7 @@ reg add {subkey} /f /v WindowsInstaller /t REG_DWORD /d 0
 {mk_shortcut_commands}
 {uninstall_shortcut_commands}
 {tray_shortcuts}
+{remove_tray_autostart}
 {shortcuts}
 copy /Y \"{tmp_path}\\Uninstall {app_name}.lnk\" \"{path}\\\"
 {dels}
@@ -1766,6 +1777,7 @@ copy /Y \"{tmp_path}\\Uninstall {app_name}.lnk\" \"{path}\\\"
         dels = if debug { "" } else { &dels },
         copy_exe = copy_exe_cmd(&src_exe, &exe, &path)?,
         import_config = get_import_config(&exe),
+        remove_tray_autostart = remove_tray_autostart,
     );
     run_cmds(cmds, debug, "install")?;
     run_after_run_cmds(silent);
@@ -3321,15 +3333,23 @@ fn get_install_service_commands(path: &str, exe: &str) -> ResultType<String> {
     if let Some(icon) = shortcut_icon_location.as_deref() {
         validate_install_value(icon)?;
     }
-    let tray_shortcut_commands =
-        embedded_tray_shortcut_commands(&app_name, exe, shortcut_icon_location.as_deref())?;
+    let startup_tray_commands = if CUSTOM_DISABLE_WINDOWS_TRAY_AUTOSTART {
+        format!(
+            "if exist \"%PROGRAMDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\{app_name} Tray.lnk\" del /f /q \"%PROGRAMDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\{app_name} Tray.lnk\""
+        )
+    } else {
+        let tray_shortcut_commands =
+            embedded_tray_shortcut_commands(&app_name, exe, shortcut_icon_location.as_deref())?;
+        format!(
+            "{tray_shortcut_commands}\ncopy /Y \"%RUSTDESK_OUTPUT_DIR%\\{app_name} Tray.lnk\" \"%PROGRAMDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\\""
+        )
+    };
     let filter = format!(" /FI \"PID ne {}\"", get_current_pid());
     Ok(format!(
         "
 chcp 65001
 taskkill /F /IM {app_name}.exe{filter}
-{tray_shortcut_commands}
-copy /Y \"%RUSTDESK_OUTPUT_DIR%\\{app_name} Tray.lnk\" \"%PROGRAMDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\\"
+{startup_tray_commands}
 {import_config}
 {create_service}
     ",
@@ -3964,7 +3984,9 @@ fn run_after_run_cmds(silent: bool) {
             .creation_flags(winapi::um::winbase::CREATE_NO_WINDOW)
             .spawn());
     }
-    if Config::get_option("stop-service") != "Y" {
+    if !CUSTOM_DISABLE_WINDOWS_TRAY_AUTOSTART
+        && Config::get_option("stop-service") != "Y"
+    {
         allow_err!(std::process::Command::new(&exe).arg("--tray").spawn());
     }
     std::thread::sleep(std::time::Duration::from_millis(300));
