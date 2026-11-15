@@ -3176,6 +3176,10 @@ Future<void> start_service(bool is_start) async {
 }
 
 Future<bool> canBeBlocked() async {
+  // Windows Remote Desktop input must be able to operate the local RustDesk UI.
+  if (isWindows) {
+    return false;
+  }
   if (isWeb) {
     // Web can only act as a controller, never as a controlled side,
     // so it should never be blocked by a remote session.
