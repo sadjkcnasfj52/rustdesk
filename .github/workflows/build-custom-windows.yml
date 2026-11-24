@@ -2,6 +2,9 @@ name: Build custom Windows RustDesk clients
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - custom/1.5.3-controller-one-way-clipboard
 
 permissions:
   contents: read
